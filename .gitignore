@@ -1,0 +1,15 @@
+# build artefacts 
+/bin/
+/build/
+/dist/
+*.out
+
+# don't need to commit vendor since not a compliance-locked project
+/vendor/
+
+# logs and temp files
+*.log
+*.tmp
+
+# environment files
+*.env
