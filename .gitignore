@@ -1,5 +1,4 @@
 # build artefacts 
-/bin/
 /build/
 /dist/
 *.out

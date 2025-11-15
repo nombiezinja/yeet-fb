@@ -1,0 +1,11 @@
+#!/bin/bash
+
+set -e
+
+echo "Generating server..."
+
+oapi-codegen --package generatedserver -generate chi-server,types -old-config-style schema/yeet.yaml > internal/generatedserver/yeet.gen.go
+
+gofmt -l -w $PWD/service
+
+echo "Done - check out /internal/generatedserver/yeet.gen.go for newly generated server and types."
