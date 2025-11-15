@@ -2,9 +2,13 @@
 
 set -e
 
+echo "Installing go oapi-codegen"
+
+go get -tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
+
 echo "Generating server..."
 
-oapi-codegen --package generatedserver -generate chi-server,types -old-config-style schema/yeet.yaml > internal/generatedserver/yeet.gen.go
+go tool oapi-codegen --package generatedserver -generate chi-server,types -old-config-style schema/yeet.yaml > internal/generatedserver/yeet.gen.go
 
 gofmt -l -w $PWD/service
 
