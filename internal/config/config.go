@@ -1,6 +1,9 @@
 package config
 
 type Config struct {
+	ConfigVars *configVars
+	// Database                     database.DbInterface
+	// Logger logrus.FieldLogger
 }
 
 func New() (*Config, error) {
