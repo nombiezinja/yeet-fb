@@ -1,0 +1,1132 @@
+# TODO add naming conventions and guide lines
+openapi: 3.0.3
+info:
+  title: Yeet FB API
+  version: 1.0.0
+  license:
+    name: MIT
+
+servers:
+  - description: Development
+    url: "{protocol}://{hostname}:{port}/v1"
+    variables:
+      protocol:
+        enum: [http, https]
+        default: http
+      hostname:
+        default: localhost
+      port:
+        default: "8000"
+  - description: Staging
+    url: "https://{hostname}/v1"
+    variables:
+      hostname:
+        default: staging-api.placeholder.com
+  - description: Production
+    url: "https://{hostname}/v1"
+    variables:
+      hostname:
+        default: api.placeholder.com
+
+security:
+  - BearerAuth: []
+
+paths:
+  # Health & System
+  "/health":
+    get:
+      operationId: HealthCheck
+      summary: Health check endpoint
+      security: []
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  "/favicon.ico":
+    get:
+      operationId: GetFavicon
+      security: []
+      responses:
+        "200":
+          description: Favicon
+        "404":
+          description: Not found
+
+  # Authentication & Registration
+  "/auth/register":
+    post:
+      operationId: Register
+      summary: Register new user with invite code
+      description: Create new user account using valid invitation token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        "201":
+          description: User successfully registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  "/auth/login":
+    post:
+      operationId: Login
+      summary: Authenticate user credentials
+      description: Standard email/password login for initial authentication
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        "200":
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  "/auth/logout":
+    post:
+      operationId: Logout
+      summary: Logout and invalidate tokens
+      description: Invalidate user session and clear stored tokens
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # Facebook OAuth Flow
+  "/auth/facebook/authorize":
+    get:
+      operationId: GetFacebookAuthUrl
+      summary: Get Facebook OAuth authorization URL
+      description: Returns Facebook OAuth URL for user authorization with CSRF protection
+      parameters:
+        - name: redirect_uri
+          in: query
+          description: Callback URI (must be pre-registered)
+          required: false
+          schema:
+            type: string
+            format: uri
+        - name: scope
+          in: query
+          description: Requested Facebook permissions
+          required: false
+          schema:
+            type: string
+            default: "user_posts,pages_read_engagement,pages_manage_posts"
+      responses:
+        "200":
+          description: Authorization URL generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacebookAuthUrlResponse'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  "/auth/facebook/callback":
+    post:
+      operationId: HandleFacebookCallback
+      summary: Process Facebook OAuth callback
+      description: Exchange authorization code for access token with CSRF validation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FacebookCallbackRequest'
+      responses:
+        "200":
+          description: Token exchange successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacebookTokenResponse'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  "/auth/facebook/token/verify":
+    post:
+      operationId: VerifyFacebookToken
+      summary: Verify Facebook access token validity
+      description: Validate token and return user/app information
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenVerifyRequest'
+      responses:
+        "200":
+          description: Token verification result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenVerifyResponse'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  "/auth/facebook/token/refresh":
+    post:
+      operationId: RefreshFacebookToken
+      summary: Exchange short-lived for long-lived token
+      description: Extend token lifetime using Facebook's token exchange
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+      responses:
+        "200":
+          description: Token refresh successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacebookTokenResponse'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # Principal Management
+  "/principals":
+    get:
+      operationId: ListPrincipals
+      summary: List system principals
+      description: Retrieve paginated list of system principals (admin only)
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+      responses:
+        "200":
+          description: Principals retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrincipalsListResponse'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    post:
+      operationId: CreatePrincipal
+      summary: Create new principal
+      description: Create system principal with specified permissions (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePrincipalRequest'
+      responses:
+        "201":
+          description: Principal created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Principal'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  "/principals/{principal_id}":
+    parameters:
+      - $ref: "#/components/parameters/PrincipalId"
+    
+    get:
+      operationId: GetPrincipal
+      summary: Get principal details
+      description: Retrieve specific principal information
+      responses:
+        "200":
+          description: Principal details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Principal'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    put:
+      operationId: UpdatePrincipal
+      summary: Update principal
+      description: Update principal permissions and metadata
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePrincipalRequest'
+      responses:
+        "200":
+          description: Principal updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Principal'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    delete:
+      operationId: DeletePrincipal
+      summary: Delete principal
+      description: Remove principal from system (admin only)
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # Post Management
+  "/principals/{principal_id}/posts":
+    parameters:
+      - $ref: "#/components/parameters/PrincipalId"
+    
+    get:
+      operationId: ListPosts
+      summary: List Facebook posts
+      description: Retrieve paginated list of Facebook posts for principal
+      parameters:
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/PageToken"
+        - name: type
+          in: query
+          description: Filter by post type
+          required: false
+          schema:
+            type: string
+            enum: [status, photo, video, link, event]
+        - name: created_since
+          in: query
+          description: Filter posts created after this date
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: created_until
+          in: query
+          description: Filter posts created before this date
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Posts retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostsListResponse'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    delete:
+      operationId: DeleteAllPosts
+      summary: Delete all posts
+      description: |
+        Bulk delete all Facebook posts for principal.
+        **WARNING**: This action is irreversible!
+        
+        Uses exponential backoff to respect Facebook rate limits.
+      parameters:
+        - name: confirm
+          in: query
+          description: Confirmation flag (must be 'DELETE_ALL_POSTS')
+          required: true
+          schema:
+            type: string
+            enum: ["DELETE_ALL_POSTS"]
+        - name: dry_run
+          in: query
+          description: Preview deletion without executing
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "202":
+          description: Bulk deletion initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkDeleteResponse'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  "/principals/{principal_id}/posts/{post_id}":
+    parameters:
+      - $ref: "#/components/parameters/PrincipalId"
+      - $ref: "#/components/parameters/PostId"
+    
+    get:
+      operationId: GetPost
+      summary: Get specific post
+      description: Retrieve detailed information for a specific Facebook post
+      responses:
+        "200":
+          description: Post details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostDetailResponse'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    delete:
+      operationId: DeletePost
+      summary: Delete specific post
+      description: Delete a single Facebook post by ID
+      responses:
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  # Batch Operations
+  "/principals/{principal_id}/posts:batchDelete":
+    parameters:
+      - $ref: "#/components/parameters/PrincipalId"
+    
+    post:
+      operationId: BatchDeletePosts
+      summary: Batch delete specific posts
+      description: Delete multiple specific posts with rate limiting
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchDeleteRequest'
+      responses:
+        "202":
+          description: Batch deletion initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchDeleteResponse'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    PrincipalId:
+      name: principal_id
+      in: path
+      required: true
+      description: Unique principal identifier
+      schema:
+        type: string
+        format: uuid
+
+    PostId:
+      name: post_id
+      in: path
+      required: true
+      description: Facebook post identifier
+      schema:
+        type: string
+        pattern: '^[0-9]+_[0-9]+$'
+
+    PageSize:
+      name: page_size
+      in: query
+      required: false
+      description: Number of items per page (max 100)
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 25
+
+    PageToken:
+      name: page_token
+      in: query
+      required: false
+      description: Pagination token for next page
+      schema:
+        type: string
+
+  responses:
+    NoContent:
+      description: (204) Request successful, no content returned
+
+    BadRequest:
+      description: (400) Invalid request parameters or malformed data
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    Unauthorized:
+      description: (401) Authentication required or invalid credentials
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    Forbidden:
+      description: (403) Insufficient permissions for requested operation
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    NotFound:
+      description: (404) Requested resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    Conflict:
+      description: (409) Resource already exists or conflict with current state
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    UnprocessableEntity:
+      description: (422) Valid syntax but semantically incorrect request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    TooManyRequests:
+      description: (429) Rate limit exceeded
+      headers:
+        Retry-After:
+          description: Seconds until next request allowed
+          schema:
+            type: integer
+        X-RateLimit-Limit:
+          description: Request limit per window
+          schema:
+            type: integer
+        X-RateLimit-Remaining:
+          description: Requests remaining in current window
+          schema:
+            type: integer
+        X-RateLimit-Reset:
+          description: Window reset time (Unix timestamp)
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    InternalServerError:
+      description: (500) Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    # Base Types
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code
+            message:
+              type: string
+              description: Human-readable error message
+            details:
+              type: object
+              description: Additional error context
+            request_id:
+              type: string
+              description: Unique request identifier for debugging
+
+    HealthResponse:
+      type: object
+      required: [status, timestamp]
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+        uptime:
+          type: string
+        dependencies:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              status:
+                type: string
+                enum: [healthy, unhealthy]
+              latency_ms:
+                type: number
+
+    # Authentication Schemas
+    RegisterRequest:
+      type: object
+      required: [email, password, invitation_token]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        password:
+          type: string
+          minLength: 12
+          maxLength: 128
+          description: Must contain uppercase, lowercase, number, and special character
+        invitation_token:
+          type: string
+          minLength: 32
+          maxLength: 64
+        first_name:
+          type: string
+          maxLength: 100
+        last_name:
+          type: string
+          maxLength: 100
+
+    RegisterResponse:
+      type: object
+      required: [principal_id, email, created_at]
+      properties:
+        principal_id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        created_at:
+          type: string
+          format: date-time
+        requires_facebook_auth:
+          type: boolean
+          default: true
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    LoginResponse:
+      type: object
+      required: [access_token, token_type, principal_id]
+      properties:
+        access_token:
+          type: string
+          description: JWT access token
+        token_type:
+          type: string
+          default: "Bearer"
+        expires_in:
+          type: integer
+          description: Token lifetime in seconds
+        principal_id:
+          type: string
+          format: uuid
+        facebook_connected:
+          type: boolean
+          description: Whether Facebook account is linked
+
+    # Facebook OAuth Schemas
+    FacebookAuthUrlResponse:
+      type: object
+      required: [authorization_url, state]
+      properties:
+        authorization_url:
+          type: string
+          format: uri
+          description: Facebook OAuth authorization URL
+        state:
+          type: string
+          description: CSRF protection state parameter
+        expires_in:
+          type: integer
+          description: State validity in seconds
+          default: 600
+
+    FacebookCallbackRequest:
+      type: object
+      required: [code, state]
+      properties:
+        code:
+          type: string
+          description: Authorization code from Facebook
+        state:
+          type: string
+          description: CSRF state parameter
+        error:
+          type: string
+          description: Error code if authorization denied
+        error_description:
+          type: string
+          description: Human-readable error description
+
+    FacebookTokenResponse:
+      type: object
+      required: [access_token, token_type, expires_in]
+      properties:
+        access_token:
+          type: string
+          description: Facebook access token (encrypted in storage)
+        token_type:
+          type: string
+          default: "bearer"
+        expires_in:
+          type: integer
+          description: Token lifetime in seconds
+        scope:
+          type: string
+          description: Granted permissions
+        user_id:
+          type: string
+          description: Facebook user ID
+        user_name:
+          type: string
+          description: Facebook user name
+
+    TokenVerifyRequest:
+      type: object
+      required: [access_token]
+      properties:
+        access_token:
+          type: string
+
+    TokenVerifyResponse:
+      type: object
+      required: [is_valid]
+      properties:
+        is_valid:
+          type: boolean
+        app_id:
+          type: string
+        user_id:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        scopes:
+          type: array
+          items:
+            type: string
+        error:
+          $ref: "#/components/schemas/FacebookError"
+
+    TokenRefreshRequest:
+      type: object
+      required: [access_token]
+      properties:
+        access_token:
+          type: string
+          description: Short-lived token to exchange
+
+    # Principal Schemas
+    Principal:
+      type: object
+      required: [id, email, principal_type, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        first_name:
+          type: string
+        last_name:
+          type: string
+        principal_type:
+          $ref: "#/components/schemas/PrincipalType"
+        status:
+          $ref: "#/components/schemas/PrincipalStatus"
+        facebook_user_id:
+          type: string
+          description: Linked Facebook user ID
+        facebook_connected_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        last_login_at:
+          type: string
+          format: date-time
+
+    PrincipalType:
+      type: string
+      enum: [user, admin, service]
+      description: Principal classification
+
+    PrincipalStatus:
+      type: string
+      enum: [active, suspended, deactivated]
+      description: Principal account status
+
+    CreatePrincipalRequest:
+      type: object
+      required: [email, principal_type]
+      properties:
+        email:
+          type: string
+          format: email
+        first_name:
+          type: string
+        last_name:
+          type: string
+        principal_type:
+          $ref: "#/components/schemas/PrincipalType"
+
+    UpdatePrincipalRequest:
+      type: object
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        status:
+          $ref: "#/components/schemas/PrincipalStatus"
+
+    PrincipalsListResponse:
+      type: object
+      required: [principals]
+      properties:
+        principals:
+          type: array
+          items:
+            $ref: "#/components/schemas/Principal"
+        next_page_token:
+          type: string
+        total_count:
+          type: integer
+
+    # Post Schemas
+    Post:
+      type: object
+      required: [id, created_time]
+      properties:
+        id:
+          type: string
+          description: Facebook post ID
+        message:
+          type: string
+          description: Post text content
+        story:
+          type: string
+          description: Auto-generated story text
+        created_time:
+          type: string
+          format: date-time
+        updated_time:
+          type: string
+          format: date-time
+        type:
+          type: string
+          enum: [status, photo, video, link, event, note]
+        status_type:
+          type: string
+        link:
+          type: string
+          format: uri
+        name:
+          type: string
+        caption:
+          type: string
+        description:
+          type: string
+        picture:
+          type: string
+          format: uri
+        source:
+          type: string
+          format: uri
+        permalink_url:
+          type: string
+          format: uri
+        is_published:
+          type: boolean
+        privacy:
+          type: object
+          properties:
+            value:
+              type: string
+              enum: [EVERYONE, ALL_FRIENDS, FRIENDS_OF_FRIENDS, CUSTOM, SELF]
+        shares:
+          type: object
+          properties:
+            count:
+              type: integer
+        reactions:
+          type: object
+          properties:
+            summary:
+              type: object
+              properties:
+                total_count:
+                  type: integer
+
+    PostDetailResponse:
+      type: object
+      required: [post]
+      properties:
+        post:
+          $ref: "#/components/schemas/Post"
+        cached_at:
+          type: string
+          format: date-time
+          description: When this data was last fetched from Facebook
+
+    PostsListResponse:
+      type: object
+      required: [posts]
+      properties:
+        posts:
+          type: array
+          items:
+            $ref: "#/components/schemas/Post"
+        next_page_token:
+          type: string
+        total_count:
+          type: integer
+        has_more:
+          type: boolean
+
+    # Batch Operation Schemas
+    BatchDeleteRequest:
+      type: object
+      required: [post_ids]
+      properties:
+        post_ids:
+          type: array
+          items:
+            type: string
+          minItems: 1
+          maxItems: 50
+          description: Facebook post IDs to delete
+        dry_run:
+          type: boolean
+          default: false
+          description: Preview without executing
+
+    BulkDeleteResponse:
+      type: object
+      required: [operation_id, status]
+      properties:
+        operation_id:
+          type: string
+          format: uuid
+          description: Unique operation identifier
+        status:
+          type: string
+          enum: [queued, in_progress, completed, failed, cancelled]
+        total_posts:
+          type: integer
+          description: Total posts to process
+        processed_posts:
+          type: integer
+          description: Posts already processed
+        deleted_posts:
+          type: integer
+          description: Successfully deleted posts
+        failed_posts:
+          type: integer
+          description: Failed deletion attempts
+        estimated_completion:
+          type: string
+          format: date-time
+        rate_limit_info:
+          type: object
+          properties:
+            requests_per_hour:
+              type: integer
+            current_usage:
+              type: integer
+            reset_time:
+              type: string
+              format: date-time
+
+    BatchDeleteResponse:
+      allOf:
+        - $ref: "#/components/schemas/BulkDeleteResponse"
+        - type: object
+          properties:
+            results:
+              type: array
+              items:
+                type: object
+                properties:
+                  post_id:
+                    type: string
+                  status:
+                    type: string
+                    enum: [queued, success, failed, rate_limited]
+                  error:
+                    type: string
+
+    FacebookError:
+      type: object
+      properties:
+        code:
+          type: integer
+          description: Facebook error code
+        subcode:
+          type: integer
+          description: Facebook error subcode
+        message:
+          type: string
+          description: Error message
+        type:
+          type: string
+          description: Error type
+        fbtrace_id:
+          type: string
+          description: Facebook trace ID for debugging
