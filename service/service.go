@@ -14,9 +14,9 @@ type Service struct {
 
 // New returns a new service, inject config and mux as dependencies
 // to enable testing.
-func New(config *config.Config, r *chi.Mux) (*Service, Server) {
+func New(config config.ConfigInterface, r *chi.Mux) (*Service, Server) {
 	s := Server{
-		Config: config,
+		Config: &config,
 	}
 
 	opts := generatedserver.ChiServerOptions{
@@ -32,7 +32,7 @@ func New(config *config.Config, r *chi.Mux) (*Service, Server) {
 }
 
 type Server struct {
-	Config *config.Config
+	Config *config.ConfigInterface
 }
 
 // --- Auth & OAuth ---

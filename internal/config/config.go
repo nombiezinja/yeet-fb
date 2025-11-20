@@ -12,9 +12,22 @@ type Config struct {
 	Logger *slog.Logger
 }
 
-func New() (*Config, error) {
+// ConfigInterface is asked for everywhere to avoid tight coupling to the concrete Config struct.
+type ConfigInterface interface {
+	GetConfigVars() *configVars
+	GetLogger() *slog.Logger
+}
 
-	config := Config{
+func (c *Config) GetConfigVars() *configVars {
+	return c.ConfigVars
+}
+func (c *Config) GetLogger() *slog.Logger {
+	return c.Logger
+}
+
+func New() (ConfigInterface, error) {
+
+	config := &Config{
 		ConfigVars: MustLoadConfigVars(),
 	}
 
@@ -23,7 +36,7 @@ func New() (*Config, error) {
 
 	// Connect to db
 
-	return &config, nil
+	return config, nil
 }
 
 func MustLoadConfigVars() *configVars {

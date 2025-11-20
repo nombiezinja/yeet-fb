@@ -8,7 +8,7 @@ import (
 	"github.com/nombiezinja/yeet-fb/internal/config"
 )
 
-func NewRouter(cfg *config.Config) *chi.Mux {
+func NewRouter(cfg config.ConfigInterface) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.NotFound(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
