@@ -22,6 +22,10 @@ func main() {
 	s, _ := service.New(cfg, r)
 
 	logger := cfg.Logger
-	logger.Infof("Serving application at port " + cfg.ConfigVars.Port)
-	logger.Fatal(http.ListenAndServe(":"+cfg.ConfigVars.Port, *s.Handler))
+	logger.Info("Serving application at port " + cfg.ConfigVars.Port)
+
+	err = http.ListenAndServe(":"+cfg.ConfigVars.Port, *s.Handler)
+	if err != nil {
+		logger.Error(err.Error())
+	}
 }

@@ -1,0 +1,2 @@
+go build -o bin/yeet $(pwd)/cmd/yeet 
+bin/yeet
