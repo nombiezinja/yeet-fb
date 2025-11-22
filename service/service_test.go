@@ -13,6 +13,7 @@ import (
 // TestNewServiceSuccess ensures New returns a valid Service and Server
 func TestNewServiceWithMockConfig(t *testing.T) {
 	mockCfg := config.MockConfig{}
+	r := chi.NewMux()
 	svc, srv := New(&mockCfg, r)
 	assert.NotNil(t, svc)
 	assert.NotNil(t, srv)

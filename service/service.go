@@ -23,7 +23,7 @@ func New(config config.ConfigInterface, r *chi.Mux) (*Service, Server) {
 		BaseRouter: r,
 	}
 
-	//Mount generated server in uwu.gen.go
+	//Mount generated server in yeet.gen.go
 	handler := generatedserver.HandlerWithOptions(s, opts)
 
 	return &Service{

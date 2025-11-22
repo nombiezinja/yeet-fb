@@ -12,7 +12,7 @@ CLI only
 * alk;djflkasjdfl; 
 * use short lived access token for development
 * get 1 post works
-* delete 1 post works 
+* delete 1 post works  
 * a;ldkfjal;sdkjf;alskd aaaaaa
 * get user authn working
 * get user authz working
@@ -20,6 +20,8 @@ CLI only
 add frontend aaaaa
 deploy aaaaa
 asl;dkjfas;dlkfj
+
+use github apps instead of deploy key 
 
 ## brain dump 
 * tool choices 
